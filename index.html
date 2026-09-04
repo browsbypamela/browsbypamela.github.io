@@ -64,8 +64,8 @@
   .hero-photo{margin:46px auto 0; max-width:920px; border-radius:24px; overflow:hidden; border:1px solid #4A3C17; box-shadow:0 30px 70px rgba(0,0,0,.65)}
   .carousel{position:relative; width:100%; overflow:hidden; touch-action:pan-y}
   .car-track{display:flex; transition:transform .5s cubic-bezier(.4,0,.2,1)}
-  .c-slide{min-width:100%; position:relative}
-  .c-slide img{width:100%; height:auto; display:block}
+  .c-slide{min-width:100%; position:relative; aspect-ratio:1280/698; background:#0B0905}
+  .c-slide img{width:100%; height:100%; object-fit:cover; display:block}
   .c-cap{position:absolute; left:14px; bottom:14px; background:rgba(13,11,7,.68); color:#E9CE7A; border:1px solid rgba(212,175,55,.45); font-size:12px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; padding:6px 13px; border-radius:999px}
   .c-arrow{position:absolute; top:50%; transform:translateY(-50%); z-index:5; width:42px; height:42px; border-radius:50%; background:rgba(13,11,7,.6); border:1px solid rgba(212,175,55,.55); color:#E9CE7A; font-size:20px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s, color .15s}
   .c-arrow:hover{background:rgba(212,175,55,.9); color:#0D0B07}
@@ -526,25 +526,66 @@
 
 <script>
 (function(){
+  /* ============================================================
+     Hero carousel — auto-shows every image in the "hero" folder
+     of this repo. Upload jpg/png/webp there and they appear,
+     with the file name as the caption. If the folder is empty or
+     missing, the built-in photos stay as fallback.
+     ✏️ EDIT: repo name here if it ever differs.
+     ============================================================ */
+  var API='https://api.github.com/repos/browsbypamela/browsbypamela.github.io/contents/hero';
+
   var track=document.getElementById('heroTrack'),
-      slides=track.children, n=slides.length, idx=0,
       dotsWrap=document.getElementById('heroDots'),
       prevB=document.getElementById('heroPrev'),
       nextB=document.getElementById('heroNext'),
       wrap=document.getElementById('heroCarousel');
-  var dots=[];
-  for(var i=0;i<n;i++){
-    var d=document.createElement('button');
-    d.className='c-dot'; d.setAttribute('aria-label','Go to slide '+(i+1));
-    (function(k){ d.onclick=function(){ go(k); restart(); }; })(i);
-    dotsWrap.appendChild(d); dots.push(d);
+  var fallbackHTML=track.innerHTML;
+  var idx=0, timer=null, dots=[];
+
+  function isImage(name){ return /\.(jpe?g|png|webp|gif|avif)$/i.test(name); }
+  function caption(name){ return name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ').replace(/^\d+[\s._-]*/,'').trim(); }
+
+  function buildSlide(name){
+    var s=document.createElement('div');
+    s.className='c-slide';
+    var im=document.createElement('img');
+    im.src='hero/'+encodeURIComponent(name);
+    im.alt=caption(name)+' \u2014 Brows by Pamela';
+    im.onerror=function(){
+      if(s.parentNode){ s.parentNode.removeChild(s); }
+      if(!track.children.length){ track.innerHTML=fallbackHTML; }
+      initCarousel();
+    };
+    var cap=document.createElement('span');
+    cap.className='c-cap';
+    cap.textContent=caption(name);
+    s.appendChild(im); s.appendChild(cap);
+    return s;
+  }
+
+  function initCarousel(){
+    idx=0;
+    if(timer){ clearInterval(timer); timer=null; }
+    dotsWrap.innerHTML='';
+    dots=[];
+    var n=track.children.length;
+    for(var i=0;i<n;i++){
+      var d=document.createElement('button');
+      d.className='c-dot';
+      d.setAttribute('aria-label','Go to slide '+(i+1));
+      (function(k){ d.onclick=function(){ go(k); restart(); }; })(i);
+      dotsWrap.appendChild(d); dots.push(d);
+    }
+    if(n>1){ restart(); } else { go(0); }
   }
   function go(i){
+    var n=track.children.length;
+    if(!n) return;
     idx=(i+n)%n;
     track.style.transform='translateX(-'+(idx*100)+'%)';
-    for(var j=0;j<n;j++){ dots[j].className='c-dot'+(j===idx?' on':''); }
+    for(var j=0;j<dots.length;j++){ dots[j].className='c-dot'+(j===idx?' on':''); }
   }
-  var timer=null;
   function restart(){
     if(timer) clearInterval(timer);
     timer=setInterval(function(){ go(idx+1); },5500);
@@ -559,8 +600,21 @@
     if(Math.abs(dx)>45){ go(dx<0?idx+1:idx-1); restart(); }
     x0=null;
   });
-  go(0);
-  timer=setInterval(function(){ go(idx+1); },5500);
+
+  // Load the "hero" folder; fall back to built-in photos.
+  fetch(API).then(function(r){
+    if(!r.ok) throw new Error('http '+r.status);
+    return r.json();
+  }).then(function(items){
+    var imgs=Array.isArray(items)?items.filter(function(f){ return f.type==='file'&&isImage(f.name); }):[];
+    if(imgs.length){
+      track.innerHTML='';
+      imgs.forEach(function(f){ track.appendChild(buildSlide(f.name)); });
+    }
+    initCarousel();
+  }).catch(function(){
+    initCarousel();
+  });
 })();
 </script>
 
@@ -692,5 +746,5 @@
   document.addEventListener('keydown', function(e){ if(e.key==='Escape'&&!modal.hidden){ close(); } });
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a35cc6be6a40ff95',t:'MTc4ODUyMjYyMw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a35cd70fbbb1836b',t:'MTc4ODUyMzI5Mg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
